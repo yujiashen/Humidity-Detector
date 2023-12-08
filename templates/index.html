@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sensor Data Dashboard</title>
+    <!-- Add Plotly JavaScript CDN link -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <!-- Add Bootstrap CDN link -->
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Add Font Awesome CDN link for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" integrity="sha512-+ZVwDSYv9dlY4vBrxvHvxMZ1gMyxd6JeArvEFBt6X7YAnKtyLp9S0r6p+ui9w19eUp1V60q+53a9oJ2Q8zImZzQ==" crossorigin="anonymous" />
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 20px;
+            background-color: #f8f9fa;
+        }
+
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #007bff;
+        }
+
+        .plot-container {
+            max-width: 800px;
+            margin: auto;
+            margin-bottom: 30px;
+        }
+
+        .dashboard-link {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 20px;
+            text-decoration: none;
+            color: #fff;
+            background-color: #007bff;
+            padding: 10px;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+
+        .dashboard-link i {
+            margin-right: 10px;
+        }
+
+        .dashboard-link:hover {
+            background-color: #0056b3;
+        }
+
+        /* Add custom CSS styles for the tabs */
+        .tab {
+            display: none;
+        }
+
+        .temp-tab {
+            display: none;
+        }
+
+        .active-tab {
+            display: block;
+        }
+
+        .tab-buttons {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+        }
+
+        .tab-button {
+            cursor: pointer;
+            padding: 10px;
+            border: 1px solid #007bff;
+            border-radius: 5px;
+            color: #007bff;
+            text-decoration: none;
+        }
+
+        .tab-button:hover {
+            background-color: #007bff;
+            color: #fff;
+        }
+
+        #subtitle {
+            color: #007bff;
+            text-align: left;
+            margin-bottom: 5px;
+            display: inline-block; /* Display as inline-block to prevent full width */
+        }
+
+        .recent-reading-tab {
+            display: inline-block; /* Display as inline-block to stay in the same line */
+            vertical-align: top; /* Align to the top */
+            margin-left: auto; 
+            margin-right: 0;
+            margin-bottom: 30px;
+        }
+
+        .recent-reading-container {
+            border: 1px solid #007bff;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        button {
+            width: 100%;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 style="color: #007bff; text-align: center; font-size: 2em; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 2px;">Sensor Data Dashboard</h1>
+        <div style="display: flex; justify-content: space-around">
+            <h2 id="subtitle" style="color: #007bff; text-align: left; margin-bottom: 16px;">{{location_name}}</h2>
+            <div class="recent-reading-tab">
+                <!-- Button to request a reading -->
+                <button onclick="requestReading()">Read Now</button>
+                <!-- Container for displaying the most recent reading -->
+                <div class="recent-reading-container">
+                    <div id="recent-timestamp">Last reading: {{recent_reading_time}}</div>
+                    <div id="recent-measure">Hum: {{recent_reading_hum}}%, Temp: {{recent_reading_temp}}F</div>
+                </div>
+            </div>
+        </div>
+
+    <div class="container">
+        <!-- Add tab buttons for different time ranges -->
+        <div class="tab-buttons">
+            <a href="javascript:void(0);" class="tab-button" onclick="showTab('humidity','all')">All Time</a>
+            <a href="javascript:void(0);" class="tab-button" onclick="showTab('humidity','year')">Last Year</a>
+            <a href="javascript:void(0);" class="tab-button" onclick="showTab('humidity','month')">Last Month</a>
+            <a href="javascript:void(0);" class="tab-button" onclick="showTab('humidity','day')">Last Day</a>
+        </div>
+
+        
+        <!-- Humidity plot container -->
+        <div class="plot-container">
+            <div class="tab humidity-tab active-tab" id="all">
+                <div id="humidity-plot"></div>
+                <label style="font-family: 'Open Sans', sans-serif;">
+                        Show Weather Data
+                    <input type="checkbox" id="toggle-weather-all" onclick="toggleWeather()">
+                </label>
+                <script>
+                    var data = {{ data | tojson | safe }};
+                    var weather_data = {{ weather_data | tojson | safe }};
+                    var trace = {
+                        x: data.timestamps,
+                        y: data.humidity_values,
+                        mode: 'lines+markers',
+                        type: 'scatter',
+                        name: 'Humidity',
+                        marker: {
+                            color: data.humidity_colors
+                        }
+                    };
+                    var layout = {
+                        title: 'Humidity Data',
+                        xaxis: { title: 'Timestamp' },
+                        yaxis: { title: 'Humidity (%)' },
+                        hovermode: 'x'
+                    };
+                    var plotData = [trace];
+                    Plotly.newPlot('humidity-plot', plotData, layout);
+            
+                    // Function to toggle weather data
+                    function toggleWeather() {
+                        var weatherCheckbox = document.getElementById('toggle-weather-all');
+                        var weatherTrace = {
+                            x: weather_data.timestamps,
+                            y: weather_data.humidity_values,
+                            mode: 'lines+markers',
+                            type: 'scatter',
+                            name: 'Weather Data',
+                        };
+            
+                        if (weatherCheckbox.checked) {
+                            Plotly.addTraces('humidity-plot', weatherTrace);
+                        } else {
+                            Plotly.deleteTraces('humidity-plot', 1); // Assuming the weather trace is the second trace
+                        }
+                    }
+                </script>
+            </div> 
+
+            <div class="tab humidity-tab active-tab" id="year">
+                <div id="humidity-plot-year"></div>
+                <label style="font-family: 'Open Sans', sans-serif;">
+                        Show Weather Data
+                    <input type="checkbox" id="toggle-weather-year" onclick="toggleWeather_year()">
+                </label>
+                <script>
+                var data_year = {{ data_year | tojson | safe }};
+                var weather_data_year = {{ weather_data_year | tojson | safe }};
+                var trace_year = {
+                    x: data_year.timestamps,
+                    y: data_year.humidity_values,
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: 'Humidity',
+                    marker: {
+                        color: data_year.humidity_colors
+                    }
+                };
+                var layout = {
+                    title: 'Humidity Data',
+                    xaxis: { title: 'Timestamp' },
+                    yaxis: { title: 'Humidity (%)' },
+                    hovermode: 'x'
+                };
+                var plotData_year = [trace_year];
+                Plotly.newPlot('humidity-plot-year', plotData_year, layout);
+        
+                // Function to toggle weather data
+                function toggleWeather_year() {
+                    var weatherCheckbox = document.getElementById('toggle-weather-year');
+                    var weatherTrace = {
+                        x: weather_data_year.timestamps,
+                        y: weather_data_year.humidity_values,
+                        mode: 'lines+markers',
+                        type: 'scatter',
+                        name: 'Weather Data',
+                    };
+        
+                    if (weatherCheckbox.checked) {
+                        Plotly.addTraces('humidity-plot-year', weatherTrace);
+                    } else {
+                        Plotly.deleteTraces('humidity-plot-year', 1); // Assuming the weather trace is the second trace
+                    }
+                }
+                </script>
+            </div>
+
+            <div class="tab humidity-tab active-tab" id="month">
+                <div id="humidity-plot-month"></div>
+                <label style="font-family: 'Open Sans', sans-serif;">
+                        Show Weather Data
+                    <input type="checkbox" id="toggle-weather-month" onclick="toggleWeather_month()">
+                </label>
+                <script>
+                var data_month = {{ data_month | tojson | safe }};
+                var weather_data_month = {{ weather_data_month | tojson | safe }};
+                var trace_month = {
+                    x: data_month.timestamps,
+                    y: data_month.humidity_values,
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: 'Humidity',
+                    marker: {
+                        color: data_month.humidity_colors
+                    }
+                };
+                var layout = {
+                    title: 'Humidity Data',
+                    xaxis: { title: 'Timestamp' },
+                    yaxis: { title: 'Humidity (%)' },
+                    hovermode: 'x'
+                };
+                var plotData_month = [trace_month];
+                Plotly.newPlot('humidity-plot-month', plotData_month, layout);
+        
+                // Function to toggle weather data
+                function toggleWeather_month() {
+                    var weatherCheckbox = document.getElementById('toggle-weather-month');
+                    var weatherTrace = {
+                        x: weather_data_month.timestamps,
+                        y: weather_data_month.humidity_values,
+                        mode: 'lines+markers',
+                        type: 'scatter',
+                        name: 'Weather Data',
+                    };
+        
+                    if (weatherCheckbox.checked) {
+                        Plotly.addTraces('humidity-plot-month', weatherTrace);
+                    } else {
+                        Plotly.deleteTraces('humidity-plot-month', 1); // Assuming the weather trace is the second trace
+                    }
+                }
+                </script>
+            </div>
+
+            <div class="tab humidity-tab active-tab" id="day">
+                <div id="humidity-plot-day"></div>
+                <label style="font-family: 'Open Sans', sans-serif;">
+                        Show Weather Data
+                    <input type="checkbox" id="toggle-weather-day" onclick="toggleWeather_day()">
+                </label>
+                <script>
+                var data_day = {{ data_day | tojson | safe }};
+                var weather_data_day = {{ weather_data_day | tojson | safe }};
+                var trace_day = {
+                    x: data_day.timestamps,
+                    y: data_day.humidity_values,
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: 'Humidity',
+                    marker: {
+                        color: data_day.humidity_colors
+                    }
+                };
+                var layout = {
+                    title: 'Humidity Data',
+                    xaxis: { title: 'Timestamp' },
+                    yaxis: { title: 'Humidity (%)' },
+                    hovermode: 'x'
+                };
+                var plotData_day = [trace_day];
+                Plotly.newPlot('humidity-plot-day', plotData_day, layout);
+        
+                // Function to toggle weather data
+                function toggleWeather_day() {
+                    var weatherCheckbox = document.getElementById('toggle-weather-day');
+                    var weatherTrace = {
+                        x: weather_data_day.timestamps,
+                        y: weather_data_day.humidity_values,
+                        mode: 'lines+markers',
+                        type: 'scatter',
+                        name: 'Weather Data',
+                    };
+        
+                    if (weatherCheckbox.checked) {
+                        Plotly.addTraces('humidity-plot-day', weatherTrace);
+                    } else {
+                        Plotly.deleteTraces('humidity-plot-day', 1); // Assuming the weather trace is the second trace
+                    }
+                }
+                </script>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Add tab buttons for different time ranges -->
+        <div class="tab-buttons">
+            <a href="javascript:void(0);" class="tab-button" onclick="showTab('temp','temp-all')">All Time</a>
+            <a href="javascript:void(0);" class="tab-button" onclick="showTab('temp','temp-year')">Last Year</a>
+            <a href="javascript:void(0);" class="tab-button" onclick="showTab('temp','temp-month')">Last Month</a>
+            <a href="javascript:void(0);" class="tab-button" onclick="showTab('temp','temp-day')">Last Day</a>
+        </div>
+
+        <!-- Temperature plot container -->
+        <div class="plot-container">
+            <div class="tab temp-tab active-tab" id="temp-all">
+                <div id="temperature-plot"></div>
+                <label style="font-family: 'Open Sans', sans-serif;">
+                        Show Weather Data
+                    <input type="checkbox" id="temp-toggle-weather-all" onclick="toggleWeather_temp()">
+                </label>
+                <script>
+                    var data = {{ data | tojson | safe }};
+                    var weather_data = {{ weather_data | tojson | safe }};
+                    var trace = {
+                        x: data.timestamps,
+                        y: data.temperature_values,
+                        mode: 'lines+markers',
+                        type: 'scatter',
+                        name: 'Temperature (F)',
+                        marker: {
+                            color: data.temperature_colors
+                        }
+                    };
+                    var layout = {
+                        title: 'Temperature Data',
+                        xaxis: { title: 'Timestamp' },
+                        yaxis: { title: 'Temperature (F)' },
+                        hovermode: 'x'
+                    };
+                    var plotData = [trace];
+                    Plotly.newPlot('temperature-plot', plotData, layout);
+            
+                    // Function to toggle weather data
+                    function toggleWeather_temp() {
+                        var weatherCheckbox = document.getElementById('temp-toggle-weather-all');
+                        var weatherTrace = {
+                            x: weather_data.timestamps,
+                            y: weather_data.temperature_values,
+                            mode: 'lines+markers',
+                            type: 'scatter',
+                            name: 'Weather Data',
+                        };
+            
+                        if (weatherCheckbox.checked) {
+                            Plotly.addTraces('temperature-plot', weatherTrace);
+                        } else {
+                            Plotly.deleteTraces('temperature-plot', 1); // Assuming the weather trace is the second trace
+                        }
+                    }
+                </script>
+            </div> 
+
+            <div class="tab temp-tab active-tab" id="temp-year">
+                <div id="temperature-plot-year"></div>
+                <label style="font-family: 'Open Sans', sans-serif;">
+                        Show Weather Data
+                    <input type="checkbox" id="temp-toggle-weather-year" onclick="toggleWeather_temp_year()">
+                </label>
+                <script>
+                var data_year = {{ data_year | tojson | safe }};
+                var weather_data_year = {{ weather_data_year | tojson | safe }};
+                var trace_year = {
+                    x: data_year.timestamps,
+                    y: data_year.temperature_values,
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: 'Temperature (F)',
+                    marker: {
+                        color: data_year.temperature_colors
+                    }
+                };
+                var layout = {
+                    title: 'Temperature Data',
+                    xaxis: { title: 'Timestamp' },
+                    yaxis: { title: 'Temperature (F)' },
+                    hovermode: 'x'
+                };
+                var plotData_year = [trace_year];
+                Plotly.newPlot('temperature-plot-year', plotData_year, layout);
+        
+                // Function to toggle weather data
+                function toggleWeather_temp_year() {
+                    var weatherCheckbox = document.getElementById('temp-toggle-weather-year');
+                    var weatherTrace = {
+                        x: weather_data_year.timestamps,
+                        y: weather_data_year.temperature_values,
+                        mode: 'lines+markers',
+                        type: 'scatter',
+                        name: 'Weather Data',
+                    };
+        
+                    if (weatherCheckbox.checked) {
+                        Plotly.addTraces('temperature-plot-year', weatherTrace);
+                    } else {
+                        Plotly.deleteTraces('temperature-plot-year', 1); // Assuming the weather trace is the second trace
+                    }
+                }
+                </script>
+            </div>
+
+            <div class="tab temp-tab active-tab" id="temp-month">
+                <div id="temperature-plot-month"></div>
+                <label style="font-family: 'Open Sans', sans-serif;">
+                        Show Weather Data
+                    <input type="checkbox" id="temp-toggle-weather-month" onclick="toggleWeather_temp_month()">
+                </label>
+                <script>
+                var data_month = {{ data_month | tojson | safe }};
+                var weather_data_month = {{ weather_data_month | tojson | safe }};
+                var trace_month = {
+                    x: data_month.timestamps,
+                    y: data_month.temperature_values,
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: 'Temperature (F)',
+                    marker: {
+                        color: data_month.temperature_colors
+                    }
+                };
+                var layout = {
+                    title: 'Temperature Data',
+                    xaxis: { title: 'Timestamp' },
+                    yaxis: { title: 'Temperature (F)' },
+                    hovermode: 'x'
+                };
+                var plotData_month = [trace_month];
+                Plotly.newPlot('temperature-plot-month', plotData_month, layout);
+        
+                // Function to toggle weather data
+                function toggleWeather_temp_month() {
+                    var weatherCheckbox = document.getElementById('temp-toggle-weather-month');
+                    var weatherTrace = {
+                        x: weather_data_month.timestamps,
+                        y: weather_data_month.temperature_values,
+                        mode: 'lines+markers',
+                        type: 'scatter',
+                        name: 'Weather Data',
+                    };
+        
+                    if (weatherCheckbox.checked) {
+                        Plotly.addTraces('temperature-plot-month', weatherTrace);
+                    } else {
+                        Plotly.deleteTraces('temperature-plot-month', 1); // Assuming the weather trace is the second trace
+                    }
+                }
+                </script>
+            </div>
+
+            <div class="tab temp-tab active-tab" id="temp-day">
+                <div id="temperature-plot-day"></div>
+                <label style="font-family: 'Open Sans', sans-serif;">
+                        Show Weather Data
+                    <input type="checkbox" id="temp-toggle-weather-day" onclick="toggleWeather_temp_day()">
+                </label>
+                <script>
+                var data_day = {{ data_day | tojson | safe }};
+                var weather_data_day = {{ weather_data_day | tojson | safe }};
+                var trace_day = {
+                    x: data_day.timestamps,
+                    y: data_day.temperature_values,
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: 'Temperature (F)',
+                    marker: {
+                        color: data_day.temperature_colors
+                    }
+                };
+                var layout = {
+                    title: 'Temperature Data',
+                    xaxis: { title: 'Timestamp' },
+                    yaxis: { title: 'Temperature (F)' },
+                    hovermode: 'x'
+                };
+                var plotData_day = [trace_day];
+                Plotly.newPlot('temperature-plot-day', plotData_day, layout);
+        
+                // Function to toggle weather data
+                function toggleWeather_temp_day() {
+                    var weatherCheckbox = document.getElementById('temp-toggle-weather-day');
+                    var weatherTrace = {
+                        x: weather_data_day.timestamps,
+                        y: weather_data_day.temperature_values,
+                        mode: 'lines+markers',
+                        type: 'scatter',
+                        name: 'Weather Data',
+                    };
+        
+                    if (weatherCheckbox.checked) {
+                        Plotly.addTraces('temperature-plot-day', weatherTrace);
+                    } else {
+                        Plotly.deleteTraces('temperature-plot-day', 1); // Assuming the weather trace is the second trace
+                    }
+                }
+                </script>
+            </div>
+        </div>
+    </div>
+
+        <!-- Link to the settings page -->
+        <a href="{{ url_for('settings_page') }}" class="dashboard-link">
+            <i class="fas fa-cogs"></i> Settings
+        </a>
+    </div>
+
+    <script>
+        function showTab(section, tabName) {
+            // Hide all tabs for the specified section
+            var tabs = document.getElementsByClassName(section + '-tab');
+            for (var i = 0; i < tabs.length; i++) {
+                tabs[i].classList.remove('active-tab');
+            }
+    
+            // Show the selected tab based on tabName
+            var selectedTab = document.getElementById(tabName);
+            if (selectedTab) {
+                selectedTab.classList.add('active-tab');
+            }
+        }
+    
+        // Set the "All Time" tab as active for both humidity and temperature when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            showTab('humidity', 'all');
+            showTab('temp', 'temp-all');
+        });
+    </script>
+    <script>
+    function requestReading() {
+        // Change button text to "Request Sent" temporarily
+        var button = document.querySelector('button');
+        var originalText = button.innerText;
+        button.innerText = 'Request Sent';
+
+        // Set a timeout to revert the button text after 2000 milliseconds (2 seconds)
+        setTimeout(function() {
+            button.innerText = originalText;
+        }, 5000);
+
+        fetch('/publish-mqtt', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                message: 'Read Now button pressed!',
+            }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('Message published successfully');
+                            // Step 2: Wait for 5 seconds
+                setTimeout(() => {
+                // Step 3: Retrieve the latest message from the database
+                fetch('/get-latest-readings', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        console.log('Latest reading:', data.readings);
+                        // Update recent reading HTML elements
+                        document.getElementById('recent-timestamp').innerText = 'Last reading: ' + data.readings.timestamp;
+                        document.getElementById('recent-measure').innerText = 'Hum: ' + data.readings.humidity + '%, Temp: ' + data.readings.temperature + 'F';
+                    } else {
+                        console.error('Error retrieving latest reading:', data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error retrieving latest reading:', error);
+                });
+            }, 5000); 
+            } else {
+                console.error('Error publishing message:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    }
+    </script>
+    
+    
+
+</body>
+</html>
