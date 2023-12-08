@@ -36,8 +36,8 @@ The app should now be running in the background! Access the app using the static
 
 ## Files
 ### Device Files:
-- `secrets.h`
-- `final_project.ino`
+- `detector_device.ino`
+- - `secrets.h`
 
 ### Application Files:
 - `main.py`
